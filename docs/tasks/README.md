@@ -2,7 +2,7 @@
 
 ## Documentation
 
-- [Task Management Guidelines](./TASK-MANAGEMENT.md) - How to manage tasks and documentation
+@TASK-MANAGEMENT.md explains how to manage tasks and documentation
 - [Implementation Notes](./implementation-notes.md) - Completed work and decisions
 - [Key Insights](./key-insights.md) - Important learnings and design principles
 - [Screencasts](./screencasts/README.md) - Video production plans and scripts
@@ -10,11 +10,12 @@
 
 ## The One Thing
 
-- [ ] [Claude.ai Web + LiveKit iOS Bridge](./claude-web-livekit-mobile-bridge.md) - Speak to Claude.ai through LiveKit iOS app
+- [ ] [Wake Word Detection](./wake-word-detection/README.md) - Always-listening mode with "Hey Claude" activation for hands-free operation
+- [ ] [Claude.ai Web + LiveKit iOS Bridge](./claude-web-livekit-mobile-bridge/README.md) - Speak to Claude.ai through LiveKit iOS app
 
 ## High Priority
 
-- [ ] [Voice Preferences System](./voice-preferences-system.md) - Set default voices per project/user/machine
+- [ ] [Voice Preferences System](./voice-preferences-system/README.md) - Set default voices per project/user/machine
 - [ ] [Create Screencast](./screencast-quickstart/README.md) - Make 2-minute quickstart video demonstrating voice-mode
 - [ ] [Conversation Browser Improvements](./conversation-browser/README.md) - Group exchanges into conversations, better UI
 - [ ] Context Prime Optimization - Make /context-prime command super fast
@@ -47,8 +48,8 @@
 
 ## Future Vision
 
-- [ ] [Streaming MCP with LiveKit for AI Conversations](./streaming-mcp-livekit-ai-conversations.md) - Enable natural AI-to-AI voice conversations using HTTP streaming
-- [ ] [Voice-Mode Streaming HTTP & OAuth for Web](./voice-mode-streaming-oauth-web.md) - Enable claude.ai web/mobile to connect to voice-mode
+- [ ] [Streaming MCP with LiveKit for AI Conversations](./streaming-mcp-livekit/README.md) - Enable natural AI-to-AI voice conversations using HTTP streaming
+- [ ] [Voice-Mode Streaming HTTP & OAuth for Web](./voice-mode-streaming-oauth-web/README.md) - Enable claude.ai web/mobile to connect to voice-mode
 
 ## Inbox (New Ideas to Review)
 
@@ -86,12 +87,12 @@
 - [x] Audio format configuration - PCM as default for TTS streaming (better than Opus for streaming)
   - [Implementation Notes](./archive/audio-format-implementation.md)
 - [x] Provider Registry MVP - Basic registry with availability checking and selection logic
-  - [Design Document](./provider-registry-design.md)
-  - [MVP Implementation](./provider-registry-mvp.md)
+  - [Design Document](./provider-registry/design.md)
+  - [MVP Implementation](./provider-registry/mvp.md)
   - [Implementation Notes](./archive/provider-registry-implementation.md)
 - [x] Silence detection implementation - WebRTC VAD for automatic recording stop
-  - [Design Document](./silence-detection-design.md)
-  - [Implementation Notes](./silence-detection-implementation.md)
+  - [Design Document](./silence-detection/design.md)
+  - [Implementation Notes](./silence-detection/implementation.md)
 - [x] Update default voices - alloy for OpenAI, af_sky for Kokoro
 - [x] Unified voice service status tool
 - [x] Auto-start Kokoro functionality
@@ -100,11 +101,12 @@
 - [x] Fixed OpenAI TTS client initialization bug
 - [x] Min/Max duration control for voice responses
   - Added `min_listen_duration` parameter to prevent premature cutoffs
-  - [Implementation Details](./min-max-duration-control.md)
+  - [Implementation Details](./min-max-duration-control/README.md)
 
 ## Current Branches
 
 - `master` - Has unified status tool and auto-start
+- `feature/wake-word-detection` - Wake word detection feature (current)
 - `feature/provider-registry` - Provider registry design docs
 - `feature/emotional-tts` - Emotional TTS implementation (merged fixes)
 - `feature/response-duration-min-max` - Min/max duration control (implemented)

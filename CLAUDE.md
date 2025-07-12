@@ -1,18 +1,22 @@
 # Instructions for Claude
 
+@README.md : Project overview
+@GLOSSARY.md : Defines terms used in this project
+@INSIGHTS.md : Insights uncovered while working on this project
+@.repos.txt : 3rd party git repos
+@docs/tasks/README.md : Always update this with link to the current tasks
+@docs/tasks/current/README.md : Always symlink `current` to the current task before restart
+
+## Wake-Up Protocol
+
+1. @CLAUDE_CONTEXT contains important context from previous sessions
+2. Read it to understand ongoing work and next steps
+3. Write to it before context is to be cleared (e.g. before being restarted)
+
 ## Primary Directive
 
 ALWAYS read the following files at the start of any session:
-- README.md to understand the project
-- GLOSSARY.md to understand key terms and concepts used in the project
-- docs/tasks/README.md for an overview of work
-- docs/conventions/CONVENTIONS.md to understand the engineering conventions for this project
-- .ai_docs/README.md to understand where to read and write information about external tools, libraries, protocols, etc
-- .repos.txt # List of 3rd party repos we may use
-- docs/tasks/README.md # Current task list and recently completed work (take note of "The One Thing" - this is the most important task currently)
 - docs/tasks/implementation-notes.md # Important implementation decisions and fixes
-- docs/tasks/key-insights.md # Key learnings and design principles
-- INSIGHTS.md # Index of important insights and design decisions from development
 
 ## Context-Aware Loading
 
@@ -22,49 +26,6 @@ Load specific convention modules based on the current work context:
 - **Python development**: Load `docs/conventions/core/principles.md` + `.conventions/languages/python.md` + `.conventions/interfaces/cli.md`
 - **Writing documentation**: Load `docs/conventions/core/principles.md` + `.conventions/core/documentation.md` + `.conventions/languages/markdown.md`
 - **General project work**: Load docs/conventions.md` + `.conventions/core/project-structure.md`
-
-## Override System
-
-Check for convention overrides in this order:
-1. `docs/conventions/` - Base conventions
-2. `docs/conventions-project/` - Project-specific overrides (if exists)
-3. `docs/conventions-local/` - Local personal overrides (if exists)
-
-Later files override earlier ones for the same convention.
-
-
-## Voice Parameter Selection Guidelines
-
-When using the voice tool (`converse`), DO NOT specify voice, model, or provider parameters unless:
-- The user explicitly requests a specific voice/model/provider (e.g., "use nova voice", "speak with Kokoro")
-- You need specific features (e.g., emotional TTS requires gpt-4o-mini-tts model)
-- You're testing failover by trying a different provider after a failure
-- You're debugging a specific configuration issue
-
-**Why**: The system automatically selects the best available endpoint, voice, and model based on:
-- Health status of endpoints (failing services are automatically skipped)
-- Configured preferences (TTS_VOICES, TTS_MODELS, TTS_BASE_URLS)
-- Feature requirements (e.g., emotional speech)
-
-**Examples**:
-```python
-# ✅ Good - Let system auto-select
-converse("How can I help you today?")
-
-# ❌ Bad - Unnecessarily specifying parameters
-converse("How can I help you today?", voice="af_sky", tts_provider="kokoro")
-
-# ✅ Good - User requested specific voice
-# User: "Can you speak with the nova voice?"
-converse("Sure, I'm now using the nova voice", voice="nova")
-
-# ✅ Good - Need emotional features
-converse("I'm so excited!", tts_model="gpt-4o-mini-tts", tts_instructions="Sound very excited")
-```
-
-You can get the attention of the USER when he is not responding by using the converse tool
-
-On startup, break the ice by asking a questions with your tools
 
 ## Task Management
 

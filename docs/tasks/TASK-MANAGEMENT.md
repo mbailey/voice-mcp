@@ -1,6 +1,8 @@
 # Task Management Guidelines
 
-This document describes how to manage tasks, documentation, and specifications in the Voice Mode project.
+**Core Rule: Every task gets its own directory under `docs/tasks/`**
+
+This document defines how to manage tasks in the Voice Mode project.
 
 ## Directory Structure
 
@@ -22,16 +24,18 @@ docs/
 ## Task Lifecycle
 
 ### 1. Creating a New Task
-- Add entry to tasks/README.md under appropriate priority section with link to task directory
-- Create a dedicated directory for the task: `tasks/[task-name]/`
-- Create a README.md in the task directory that includes:
-  - Task description and goals
-  - Links to all files within the task directory
-  - Current status and progress
-- For complex tasks, add additional files as needed:
-  - `design.md` - Initial design and specification
-  - `implementation.md` - Implementation notes and decisions
-  - Any other relevant documentation
+**All tasks must have their own directory under `docs/tasks/`**
+
+Steps:
+1. Create directory: `docs/tasks/[task-name]/`
+2. Create `docs/tasks/[task-name]/README.md` with:
+   - Task description and goals
+   - Current status
+   - Links to all files in the directory
+3. Add entry to `docs/tasks/README.md` with link to task directory
+4. For complex tasks, add:
+   - `design.md` - Initial specification
+   - `implementation.md` - Implementation decisions
 
 ### 2. Working on Tasks
 - Keep all task-related files in the task's directory
@@ -99,18 +103,18 @@ Move documentation to specs/ when:
 
 ## Examples
 
-### Good Task Organization
+### Example Task Structure
 ```
-tasks/
-├── provider-registry/
-│   ├── README.md            # Overview and links
-│   ├── design.md            # Design specification
-│   ├── mvp.md              # MVP implementation plan
-│   └── implementation.md    # Implementation notes
+docs/tasks/
+├── provider-registry/          # Active task
+│   ├── README.md              # Task overview
+│   ├── design.md              # Specification
+│   └── implementation.md      # Notes
+├── wake-word-detection/        # Active task
+│   └── README.md              # Simple task
 └── archive/
-    └── audio-format-implementation/  # Completed task directory
-        ├── README.md
-        └── implementation.md
+    └── audio-format/          # Completed task
+        └── README.md
 ```
 
 ### When Not to Archive
@@ -135,3 +139,11 @@ Before archiving:
 - Add task size estimates (S/M/L/XL)
 - Track task dependencies
 - Add completion dates to archived tasks
+
+## Key Files
+
+Global documentation in `docs/tasks/`:
+- `README.md` - Task list and status tracker
+- `implementation-notes.md` - Ongoing implementation decisions
+- `key-insights.md` - Important learnings from all tasks
+- `archive/` - Completed task directories

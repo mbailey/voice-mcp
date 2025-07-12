@@ -5,6 +5,7 @@ import logging
 import os
 import time
 import traceback
+import threading
 from typing import Optional, Literal, Tuple, Dict
 from pathlib import Path
 from datetime import datetime
@@ -15,6 +16,8 @@ from scipy.io.wavfile import write
 from pydub import AudioSegment
 from openai import AsyncOpenAI
 import httpx
+
+from voice_mode.wake_word import WakeWordDetectionService, get_wake_word_config
 
 # Optional webrtcvad for silence detection
 try:
@@ -436,8 +439,8 @@ async def speech_to_text_with_failover(
                 logger.info(f"STT succeeded with {stt_config['provider']}")
                 return result
             else:
-                # Mark endpoint as unhealthy if it returned None
-                await provider_registry.mark_unhealthy('stt', base_url, 'STT returned no result')
+                # Don't mark as unhealthy - silence is a valid result
+                logger.debug(f"STT returned no result (possibly silent audio) for {stt_config['provider']}")
                 
         except Exception as e:
             last_error = str(e)
@@ -445,8 +448,11 @@ async def speech_to_text_with_failover(
             # Mark endpoint as unhealthy
             await provider_registry.mark_unhealthy('stt', base_url, str(e))
     
-    # All endpoints failed
-    logger.error(f"All STT endpoints failed. Last error: {last_error}")
+    # All endpoints failed or returned no result
+    if last_error:
+        logger.error(f"All STT endpoints failed. Last error: {last_error}")
+    else:
+        logger.debug("All STT endpoints returned no result (possibly silent audio)")
     return None
 
 
@@ -467,12 +473,14 @@ async def _speech_to_text_internal(
     wav_file = None
     export_file = None
     export_format = None
+    audio_path = None
+    duration = len(audio_data) / SAMPLE_RATE  # Calculate duration using global SAMPLE_RATE
     try:
         import tempfile
         
         # Check if input is silent
         if np.abs(audio_data).max() < 0.001:
-            logger.warning("Audio appears to be silent")
+            logger.debug("Audio appears to be silent")
             return None
         
         # Ensure audio is in the correct format
@@ -598,7 +606,7 @@ async def _speech_to_text_internal(
                     conversation_logger = get_conversation_logger()
                     conversation_logger.log_stt(
                         text=text,
-                        audio_file=audio_path.name if audio_path else None,
+                        audio_file=os.path.basename(audio_path) if audio_path else None,
                         duration_ms=int(duration * 1000) if duration else None,
                         model=stt_config.get('model'),
                         provider=stt_config.get('provider', 'openai'),
@@ -1123,7 +1131,8 @@ async def converse(
     audio_feedback: Optional[bool] = None,
     audio_feedback_style: Optional[str] = None,
     audio_format: Optional[str] = None,
-    disable_silence_detection: bool = False
+    disable_silence_detection: bool = False,
+    wait_for_wake_word: bool = False
 ) -> str:
     """Have a voice conversation - speak a message and optionally listen for response.
     
@@ -1182,6 +1191,8 @@ async def converse(
                                    Silence detection automatically stops recording after detecting silence. 
                                    Disable if user reports being cut off, in noisy environments, or for 
                                    use cases like dictation where pauses are expected.
+        wait_for_wake_word: If True, enter standby mode and wait for wake word before processing (default: False)
+                            This enables hands-free operation by listening for "Hey Claude" or configured wake word.
         If wait_for_response is False: Confirmation that message was spoken
         If wait_for_response is True: The voice response received (or error/timeout message)
     
@@ -1207,6 +1218,150 @@ async def converse(
     Note: Emotional speech uses OpenAI's gpt-4o-mini-tts model and incurs API costs (~$0.02/minute)
     """
     logger.info(f"Converse: '{message[:50]}{'...' if len(message) > 50 else ''}' (wait_for_response: {wait_for_response})")
+    
+    # Handle wake word detection mode
+    if wait_for_wake_word:
+        logger.info("Entering standby mode for wake word detection")
+        
+        try:
+            # Get wake word configuration
+            wake_config = get_wake_word_config()
+            
+            # Check if we should return to standby mode after conversation
+            return_to_standby = os.getenv("VOICE_MODE_STANDBY", "off").lower() == "on"
+            
+            # Announce standby mode using TTS
+            standby_message = f"Standing by for '{wake_config.wake_words[0]}'..."
+            
+            # For now, just log the message until TTS is properly integrated
+            logger.info(f"Wake word mode: {standby_message}")
+            print(f"\n🎤 {standby_message}\n")
+            
+            # Create STT callback that uses local Whisper only
+            def stt_callback_sync(audio_chunk: np.ndarray) -> str:
+                """Synchronous STT callback for wake word detection."""
+                try:
+                    # Log audio chunk info
+                    logger.info(f"Wake word STT: Processing {len(audio_chunk)} samples ({len(audio_chunk)/wake_config.sample_rate:.1f}s)")
+                    
+                    # Check for silence
+                    audio_max = np.abs(audio_chunk).max()
+                    if audio_max < 0.001:
+                        logger.debug("Wake word STT: Audio chunk is silent, skipping STT")
+                        return ""
+                    
+                    # Run async operations in sync context
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        if wake_config.local_stt_only:
+                            # Only use local STT (Whisper)
+                            logger.info("Wake word STT: Using local-only mode")
+                            
+                            # Get local STT client specifically
+                            local_url = 'http://127.0.0.1:2022/v1'
+                            stt_client, stt_model, endpoint_info = loop.run_until_complete(
+                                get_stt_client(base_url=local_url)
+                            )
+                            
+                            if not stt_client:
+                                logger.warning("Wake word STT: Local Whisper not available")
+                                return ""
+                            
+                            logger.info(f"Wake word STT: Sending to local Whisper at {local_url}")
+                            
+                            # Use internal STT implementation to avoid failover
+                            stt_config = {
+                                'client': stt_client,
+                                'model': stt_model,
+                                'base_url': local_url,
+                                'provider': 'whisper-local'
+                            }
+                            
+                            text = loop.run_until_complete(
+                                _speech_to_text_internal(
+                                    audio_chunk,
+                                    stt_config,
+                                    {'_temp_stt': stt_client}
+                                )
+                            )
+                            
+                            if text:
+                                logger.info(f"Wake word STT result: '{text}'")
+                            else:
+                                logger.debug("Wake word STT: No speech detected (silence is OK)")
+                            
+                            return text or ""
+                        else:
+                            # Use normal STT with failover
+                            logger.info("Wake word STT: Using normal mode with failover")
+                            text = loop.run_until_complete(
+                                speech_to_text(audio_chunk)
+                            )
+                            return text or ""
+                    finally:
+                        loop.close()
+                except Exception as e:
+                    logger.error(f"Wake word STT callback error: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    return ""
+            
+            # Create wake word callback with threading coordination
+            wake_detected = threading.Event()
+            detected_data = {"text": "", "wake_word": ""}
+            
+            def wake_callback(wake_word: str, full_text: str):
+                """Callback when wake word is detected."""
+                detected_data["wake_word"] = wake_word
+                detected_data["text"] = full_text
+                wake_detected.set()
+            
+            # Start wake word detection service
+            service = WakeWordDetectionService(
+                wake_config,
+                stt_callback_sync,
+                wake_callback
+            )
+            
+            service.start()
+            
+            try:
+                # Wait for wake word detection
+                logger.info("Waiting for wake word...")
+                wake_detected.wait()  # This blocks until wake word detected
+                
+                # Extract the utterance after the wake word
+                wake_word_text = detected_data["wake_word"]
+                full_text = detected_data["text"]
+                
+                # Find what comes after the wake word
+                if wake_word_text and full_text:
+                    # Extract just the part after the wake word
+                    wake_pos = full_text.lower().find(wake_word_text.split()[-1].lower())
+                    if wake_pos >= 0:
+                        # Get everything after the wake word
+                        after_wake = full_text[wake_pos + len(wake_word_text.split()[-1]):].strip()
+                        if after_wake:
+                            message = after_wake
+                            logger.info(f"Processing wake word request: '{message}'")
+                        else:
+                            # Just the wake word, no command
+                            message = "Yes?"
+                            wait_for_response = True
+                    else:
+                        message = full_text
+                
+                # Continue with normal conversation flow
+                # The rest of the function will handle speaking the message
+                
+            finally:
+                service.stop()
+                
+        except Exception as e:
+            logger.error(f"Wake word detection error: {e}")
+            logger.error(traceback.format_exc())
+            return f"❌ Wake word detection error: {str(e)}"
     
     # Validate duration parameters
     if wait_for_response:
